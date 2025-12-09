@@ -9,42 +9,44 @@ jobs:
   deploy-and-audit:
     runs-on: self-hosted
 
-    # 🔴 CRITICAL FIX: Force usage of Git Bash (Windows version)
-    # This prevents it from trying to use WSL/Ubuntu
-    defaults:
-      run:
-        shell: "C:\\Program Files\\Git\\bin\\bash.exe" --noprofile --norc -e -o pipefail {0}
-
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
 
-      - name: 1. Deploy Application (Simulated)
+      - name: 1. Deploy Vulnerable App
+        # PowerShell is the default on Windows runners, so we use its syntax.
         run: |
-          echo "🚀 Deploying application to Kubernetes..."
-          # Now '|| true' will work because we are in Git Bash
-          kubectl create deployment ci-cd-vulnerable --image=alpine:3.10 --dry-run=client -o yaml | kubectl apply -f - || true
+          Write-Host "🚀 Deploying application to Kubernetes..."
           
-          # Force the update to the vulnerable image
-          kubectl set image deployment/ci-cd-vulnerable *=alpine:3.10
+          # Check if deployment exists to avoid errors
+          $dep = kubectl get deployment ci-cd-vulnerable --ignore-not-found
           
-          echo "⏳ Waiting for deployment to stabilize..."
-          sleep 10
+          if (-not $dep) {
+             # Create it if it doesn't exist
+             kubectl create deployment ci-cd-vulnerable --image=alpine:3.10
+          } else {
+             # Reset it to the vulnerable image if it does exist
+             kubectl set image deployment/ci-cd-vulnerable *=alpine:3.10
+          }
+          
+          Write-Host "⏳ Waiting for deployment to stabilize..."
+          Start-Sleep -Seconds 10
 
       - name: 2. Setup Python
         run: |
-          # We use the Windows python
           python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          if (Test-Path requirements.txt) { pip install -r requirements.txt }
 
       - name: 3. Run AI SRE Agent
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          # Explicitly tell Python to use UTF-8 for console output to avoid encoding errors
+          PYTHONIOENCODING: "utf-8"
         run: |
-          echo "🤖 Starting AI Audit..."
+          Write-Host "🤖 Starting AI Audit..."
           python sre_agent_final.py
       
       - name: 4. Verify Fixes
         run: |
-          echo "✅ Verifying cluster state..."
+          Write-Host "✅ Verifying cluster state..."
           kubectl get pods -l app=ci-cd-vulnerable
