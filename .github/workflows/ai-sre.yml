@@ -9,42 +9,42 @@ jobs:
   deploy-and-audit:
     runs-on: self-hosted
 
+    # 🔴 CRITICAL FIX: Force usage of Git Bash (Windows version)
+    # This prevents it from trying to use WSL/Ubuntu
+    defaults:
+      run:
+        shell: "C:\\Program Files\\Git\\bin\\bash.exe" --noprofile --norc -e -o pipefail {0}
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
 
       - name: 1. Deploy Application (Simulated)
-        # FORCE BASH SHELL so || true works on Windows
-        shell: bash
         run: |
           echo "🚀 Deploying application to Kubernetes..."
-          # This command creates a deployment yaml and applies it. 
-          # || true ensures it doesn't fail if it already exists in a weird state.
+          # Now '|| true' will work because we are in Git Bash
           kubectl create deployment ci-cd-vulnerable --image=alpine:3.10 --dry-run=client -o yaml | kubectl apply -f - || true
           
-          # Force the update to the vulnerable image to ensure the test case is valid
+          # Force the update to the vulnerable image
           kubectl set image deployment/ci-cd-vulnerable *=alpine:3.10
           
           echo "⏳ Waiting for deployment to stabilize..."
           sleep 10
 
       - name: 2. Setup Python
-        shell: bash
         run: |
+          # We use the Windows python
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
       - name: 3. Run AI SRE Agent
-        shell: bash
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: |
           echo "🤖 Starting AI Audit..."
-          # The agent will find the vulnerable app and patch it
           python sre_agent_final.py
       
       - name: 4. Verify Fixes
-        shell: bash
         run: |
           echo "✅ Verifying cluster state..."
           kubectl get pods -l app=ci-cd-vulnerable
