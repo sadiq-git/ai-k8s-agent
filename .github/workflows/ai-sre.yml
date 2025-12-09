@@ -13,19 +13,17 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v3
 
-      - name: 1. Deploy Vulnerable App
-        # PowerShell is the default on Windows runners, so we use its syntax.
+      - name: 1. Deploy Vulnerable App (With Sleep)
         run: |
           Write-Host "🚀 Deploying application to Kubernetes..."
           
-          # Check if deployment exists to avoid errors
           $dep = kubectl get deployment ci-cd-vulnerable --ignore-not-found
           
           if (-not $dep) {
-             # Create it if it doesn't exist
-             kubectl create deployment ci-cd-vulnerable --image=alpine:3.10
+             # Fix: Add '-- sleep 3600' so the container stays running and doesn't crash
+             kubectl create deployment ci-cd-vulnerable --image=alpine:3.10 -- sleep 3600
           } else {
-             # Reset it to the vulnerable image if it does exist
+             # Reset to vulnerable image for the demo
              kubectl set image deployment/ci-cd-vulnerable *=alpine:3.10
           }
           
@@ -40,7 +38,6 @@ jobs:
       - name: 3. Run AI SRE Agent
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          # Explicitly tell Python to use UTF-8 for console output to avoid encoding errors
           PYTHONIOENCODING: "utf-8"
         run: |
           Write-Host "🤖 Starting AI Audit..."
@@ -49,4 +46,6 @@ jobs:
       - name: 4. Verify Fixes
         run: |
           Write-Host "✅ Verifying cluster state..."
+          # Wait a moment for the new pod to start
+          Start-Sleep -Seconds 5
           kubectl get pods -l app=ci-cd-vulnerable
