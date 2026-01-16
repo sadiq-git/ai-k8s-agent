@@ -20,22 +20,23 @@ Verify the fix resulted in a healthy state.
 
 The system integrates a Local Kubernetes Cluster with Cloud AI via a Self-Hosted GitHub Action Runner.
 
-graph TD
-    User[Developer] -->|Push Code| GH[GitHub Actions]
+flowchart TD
+    User["Developer"] -->|"Push Code"| GH["GitHub Actions"]
     
-    subgraph "Your Local Machine (Self-Hosted Runner)"
-        GH -->|Trigger| Agent[🐍 Python AI Agent]
+    subgraph LocalMachine ["Your Local Machine (Self-Hosted Runner)"]
+        direction TB
+        GH -->|"Trigger"| Agent["🐍 Python AI Agent"]
         
-        Agent -->|1. List Pods| K8s[Docker Desktop K8s]
-        Agent -->|2. Scan Image| Trivy[🛡️ Trivy Scanner]
+        Agent -->|"1. List Pods"| K8s["Docker Desktop K8s"]
+        Agent -->|"2. Scan Image"| Trivy["🛡️ Trivy Scanner"]
         
-        Trivy -->|Report CVEs| Agent
+        Trivy -->|"Report CVEs"| Agent
         
-        Agent -->|3. Reasoning| Groq[🧠 Groq Cloud API]
-        Groq -- "(Llama 3.3)" --> Agent
+        Agent -->|"3. Reasoning"| Groq["🧠 Groq Cloud API"]
+        Groq -->|"Llama 3.3"| Agent
         
-        Agent -->|4. Auto-Patch| K8s
-        K8s -->|5. Verify| Agent
+        Agent -->|"4. Auto-Patch"| K8s
+        K8s -->|"5. Verify"| Agent
     end
 
 
